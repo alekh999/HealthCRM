@@ -169,7 +169,7 @@ app.post('/api/auth/login', loginLimiter, handleAsync(async (req, res) => {
   if (!password || password.length > 256) return res.status(400).json({ error: 'Username and password are required.' });
 
   const result = await pool.query(
-    'SELECT id, username, full_name, role, password_hash, active FROM app_users WHERE username = $1',
+    'SELECT id, username, full_name, role, password_hash, active, token_version FROM app_users WHERE username = $1',
     [username]
   );
   const row = result.rows[0];
@@ -206,9 +206,10 @@ app.post('/api/auth/change-password', ...signedIn, handleAsync(async (req, res) 
     return res.status(400).json({ error: 'Current password is incorrect.' });
   }
   const passwordHash = await bcrypt.hash(newPassword, 12);
-  await pool.query('UPDATE app_users SET password_hash = $1, token_version = token_version + 1, updated_at = NOW() WHERE id = $2', [passwordHash, req.user.id]);
+  const updated = await pool.query('UPDATE app_users SET password_hash = $1, token_version = token_version + 1, updated_at = NOW() WHERE id = $2 RETURNING token_version', [passwordHash, req.user.id]);
   await audit(req.user.id, 'password_changed', 'user', req.user.id);
-  res.json({ ok: true, message: 'Password updated. Sign in again on other devices.' });
+  const token = jwt.sign({ sub: req.user.id, ver: Number(updated.rows[0].token_version) }, process.env.JWT_SECRET, { expiresIn: '8h', issuer: 'healthcrm' });
+  res.json({ ok: true, token, message: 'Password updated. Other sessions have been revoked.' });
 }));
 
 app.get('/api/users', ...signedIn, requireRoles('Administrator'), handleAsync(async (req, res) => {
