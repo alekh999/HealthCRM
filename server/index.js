@@ -359,16 +359,17 @@ app.post('/api/appointments', ...signedIn, requireRoles('Administrator', 'Staff'
   }
   const id = randomUUID();
   const result = await pool.query(
-    \`INSERT INTO appointments (id, patient_name, doctor_name, department, scheduled_at, reason_enc, created_by)
+    `INSERT INTO appointments (id, patient_name, doctor_name, department, scheduled_at, reason_enc, created_by)
      VALUES ($1,$2,$3,$4,$5,$6,$7)
-     RETURNING id, patient_name, doctor_name, department, scheduled_at, reason, status, created_at\`,
+     RETURNING id, patient_name, doctor_name, department, scheduled_at, reason_enc, status, created_at`,
     [id, patient, doctor, department, when.toISOString(), reasonEnc, req.user.id]
   );
+
   await audit(req.user.id, 'appointment_requested', 'appointment', id);
   const row = result.rows[0];
   res.status(201).json({ appointment: {
     id: row.id, patient: row.patient_name, doctor: row.doctor_name, department: row.department,
-    scheduledAt: row.scheduled_at, reason: row.reason, status: row.status, createdAt: row.created_at
+    scheduledAt: row.scheduled_at, reason: decryptPrivateField(row.reason_enc), status: row.status, createdAt: row.created_at
   } });
 }));
 
