@@ -1,0 +1,50 @@
+databases:
+  - name: healthcrm-db
+    databaseName: healthcrm
+    user: healthcrm
+    region: singapore
+    plan: free
+    postgresMajorVersion: "17"
+
+services:
+  - type: web
+    name: healthcrm-api
+    runtime: node
+    region: singapore
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        fromDatabase:
+          name: healthcrm-db
+          property: connectionString
+      - key: DATABASE_SSL
+        value: "false"
+      - key: JWT_SECRET
+        generateValue: true
+      - key: DATA_ENCRYPTION_KEY
+        generateValue: true
+      - key: BOOTSTRAP_ADMIN_USERNAME
+        value: admin
+      - key: BOOTSTRAP_ADMIN_NAME
+        value: Clinic Administrator
+      - key: BOOTSTRAP_ADMIN_PASSWORD
+        sync: false
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: OPENAI_MODEL
+        value: gpt-6-astra
+      - key: CORS_ORIGINS
+        value: https://alekh999.github.io
+      - key: CLINIC_NAME
+        value: Jabalpur Clinic
+      - key: CLINIC_ADDRESS
+        value: Not configured - confirm with clinic reception
+      - key: CLINIC_HOURS
+        value: Not configured - confirm with clinic reception
+      - key: CLINIC_PHONE
+        value: Not configured - confirm with clinic reception
