@@ -54,3 +54,19 @@ CREATE TABLE IF NOT EXISTS audit_events (
 );
 
 CREATE INDEX IF NOT EXISTS audit_events_created_idx ON audit_events (created_at DESC);
+
+CREATE TABLE IF NOT EXISTS appointments (
+  id UUID PRIMARY KEY,
+  patient_name TEXT NOT NULL,
+  doctor_name TEXT NOT NULL,
+  department TEXT NOT NULL,
+  scheduled_at TIMESTAMPTZ NOT NULL,
+  reason TEXT,
+  status TEXT NOT NULL DEFAULT 'Requested' CHECK (status IN ('Requested', 'Confirmed', 'Completed', 'Cancelled')),
+  created_by UUID REFERENCES app_users(id) ON DELETE SET NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS appointments_scheduled_at_idx ON appointments (scheduled_at);
+CREATE INDEX IF NOT EXISTS appointments_status_idx ON appointments (status);
