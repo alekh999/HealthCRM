@@ -41,7 +41,8 @@ const allowedOrigins = new Set(
 app.set('trust proxy', 1);
 app.use(helmet({
   contentSecurityPolicy: false,
-  crossOriginEmbedderPolicy: false
+  crossOriginEmbedderPolicy: false,
+  crossOriginResourcePolicy: { policy: 'cross-origin' }
 }));
 app.use(cors({
   origin(origin, callback) {
@@ -295,7 +296,7 @@ app.patch('/api/patients/:id', ...signedIn, requireRoles('Administrator', 'Staff
     fullName: (v) => cleanString(v, 120, 'Patient name', true),
     dateOfBirth: (v) => validateDate(v),
     gender: (v) => {
-      if (!['Female', 'Male', 'Other'].includes(v)) throw new Error('Choose a valid gender.');
+      if (!['Female', 'Male', 'Other'].includes(v)) { const error = new Error('Choose a valid gender.'); error.status = 400; throw error; }
       return v;
     },
     contact: (v) => cleanString(v, 30, 'Contact number', true),
