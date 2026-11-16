@@ -572,12 +572,12 @@
                     if (newPassword.length < 12) throw new Error('New password must contain at least 12 characters.');
                     if (newPassword !== confirmPassword) throw new Error('New password and confirmation do not match.');
                 }
-                const profile = await window.HealthCRMAPI.patch('/api/auth/profile', { name });
-                currentUser = profile.user;
-                sessionStorage.setItem('crmUser', JSON.stringify(currentUser));
                 if (newPassword) {
                     await window.HealthCRMAPI.post('/api/auth/change-password', { currentPassword, newPassword });
                 }
+                const profile = await window.HealthCRMAPI.patch('/api/auth/profile', { name });
+                currentUser = profile.user;
+                sessionStorage.setItem('crmUser', JSON.stringify(currentUser));
                 userNameDisplay.textContent = currentUser.name;
                 userAvatar.textContent = currentUser.name.charAt(0).toUpperCase();
                 ['#profile-current-password','#profile-new-password','#profile-confirm-password'].forEach(function(selector) {
