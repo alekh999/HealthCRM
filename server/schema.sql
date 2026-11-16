@@ -1,0 +1,56 @@
+CREATE TABLE IF NOT EXISTS app_users (
+  id UUID PRIMARY KEY,
+  username TEXT NOT NULL UNIQUE,
+  full_name TEXT NOT NULL,
+  role TEXT NOT NULL CHECK (role IN ('Administrator', 'Doctor', 'Staff')),
+  password_hash TEXT NOT NULL,
+  active BOOLEAN NOT NULL DEFAULT TRUE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS patients (
+  id UUID PRIMARY KEY,
+  patient_number TEXT NOT NULL UNIQUE,
+  full_name TEXT NOT NULL,
+  date_of_birth DATE NOT NULL,
+  gender TEXT NOT NULL CHECK (gender IN ('Female', 'Male', 'Other')),
+  contact_number TEXT NOT NULL,
+  address_enc TEXT,
+  medical_history_enc TEXT,
+  insurance_provider TEXT,
+  insurance_policy_id_enc TEXT,
+  created_by UUID REFERENCES app_users(id) ON DELETE SET NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS patients_name_idx ON patients (LOWER(full_name));
+CREATE INDEX IF NOT EXISTS patients_number_idx ON patients (patient_number);
+
+CREATE TABLE IF NOT EXISTS invoices (
+  id UUID PRIMARY KEY,
+  invoice_number TEXT NOT NULL UNIQUE,
+  patient_name TEXT NOT NULL,
+  service_description TEXT NOT NULL,
+  amount NUMERIC(12,2) NOT NULL CHECK (amount > 0),
+  currency CHAR(3) NOT NULL DEFAULT 'INR' CHECK (currency = 'INR'),
+  status TEXT NOT NULL DEFAULT 'Pending' CHECK (status IN ('Pending', 'Paid')),
+  created_by UUID REFERENCES app_users(id) ON DELETE SET NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS invoices_created_at_idx ON invoices (created_at DESC);
+CREATE INDEX IF NOT EXISTS invoices_status_idx ON invoices (status);
+
+CREATE TABLE IF NOT EXISTS audit_events (
+  id UUID PRIMARY KEY,
+  actor_user_id UUID REFERENCES app_users(id) ON DELETE SET NULL,
+  event_type TEXT NOT NULL,
+  entity_type TEXT NOT NULL,
+  entity_id TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS audit_events_created_idx ON audit_events (created_at DESC);
