@@ -43,6 +43,7 @@
     if (!response.ok) {
       throw new Error(data.error || ('API request failed (' + response.status + ').'));
     }
+    if (path === '/api/auth/change-password' && data.token) setToken(data.token);
     return data;
   }
 
