@@ -4,7 +4,7 @@ databases:
     user: healthcrm
     region: singapore
     plan: free
-    postgresMajorVersion: "17"
+    postgresMajorVersion: 17
 
 services:
   - type: web
