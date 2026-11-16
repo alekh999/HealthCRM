@@ -104,7 +104,7 @@ function authRequired(req, res, next) {
   if (!token) return res.status(401).json({ error: 'Please sign in to continue.' });
   try {
     const payload = jwt.verify(token, process.env.JWT_SECRET, { issuer: 'healthcrm' });
-    req.auth = { userId: payload.sub };
+    req.auth = { userId: payload.sub, tokenVersion: Number(payload.ver ?? 0) };
     return next();
   } catch {
     return res.status(401).json({ error: 'Your session has expired. Please sign in again.' });
@@ -113,11 +113,11 @@ function authRequired(req, res, next) {
 async function loadUser(req, res, next) {
   try {
     const result = await pool.query(
-      'SELECT id, username, full_name, role, active FROM app_users WHERE id = $1',
+      'SELECT id, username, full_name, role, active, token_version FROM app_users WHERE id = $1',
       [req.auth.userId]
     );
     const user = result.rows[0];
-    if (!user || !user.active) return res.status(401).json({ error: 'Account is inactive or no longer exists.' });
+    if (!user || !user.active || Number(user.token_version) !== Number(req.auth.tokenVersion)) return res.status(401).json({ error: 'Account session has expired. Please sign in again.' });
     req.user = user;
     return next();
   } catch (error) {
@@ -176,7 +176,7 @@ app.post('/api/auth/login', loginLimiter, handleAsync(async (req, res) => {
   const valid = row && row.active && await bcrypt.compare(password, row.password_hash);
   if (!valid) return res.status(401).json({ error: 'Invalid username or password.' });
 
-  const token = jwt.sign({ sub: row.id }, process.env.JWT_SECRET, { expiresIn: '8h', issuer: 'healthcrm' });
+  const token = jwt.sign({ sub: row.id, ver: Number(row.token_version || 0) }, process.env.JWT_SECRET, { expiresIn: '8h', issuer: 'healthcrm' });
   await audit(row.id, 'login', 'user', row.id);
   res.json({ token, user: toUser(row), expiresIn: 28800 });
 }));
@@ -206,7 +206,7 @@ app.post('/api/auth/change-password', ...signedIn, handleAsync(async (req, res) 
     return res.status(400).json({ error: 'Current password is incorrect.' });
   }
   const passwordHash = await bcrypt.hash(newPassword, 12);
-  await pool.query('UPDATE app_users SET password_hash = $1, updated_at = NOW() WHERE id = $2', [passwordHash, req.user.id]);
+  await pool.query('UPDATE app_users SET password_hash = $1, token_version = token_version + 1, updated_at = NOW() WHERE id = $2', [passwordHash, req.user.id]);
   await audit(req.user.id, 'password_changed', 'user', req.user.id);
   res.json({ ok: true, message: 'Password updated. Sign in again on other devices.' });
 }));
@@ -470,11 +470,11 @@ async function callOpenAI(instructions, input, maxOutputTokens = 900) {
 
 app.post('/api/assistant/chat', aiLimiter, handleAsync(async (req, res) => {
   const message = cleanString(req.body?.message || '', 1200, 'Message', true);
-  const possibleIdentifier = /(?:[A-Z0-9._%+-]+@[A-Z0-9.-]+\\.[A-Z]{2,}|(?:\\+?91[\\s-]?)?[6-9]\\d{9}|\\b\\d{12}\\b)/i;
+  const possibleIdentifier = /(?:[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}|(?:\+?91[\s-]?)?[6-9]\d{9}|\b\d{12}\b)/i;
   if (possibleIdentifier.test(message)) {
     return res.status(400).json({ error: 'Please remove phone numbers, email addresses, national ID numbers and patient identifiers from chat.' });
   }
-  if (/\\b(my report|my test result|my diagnosis|my symptoms|my prescription|what medicine|medical record)\\b/i.test(message)) {
+  if (/\b(my report|my test result|my diagnosis|my symptoms|my prescription|what medicine|medical record)\b/i.test(message)) {
     return res.status(400).json({ error: 'Please do not share personal medical information here. Contact clinic staff or a qualified clinician for patient-specific help.' });
   }
   if (message.length < 2) return res.status(400).json({ error: 'Please enter a question.' });
@@ -494,7 +494,7 @@ app.post('/api/reports/summarize', ...signedIn, requireRoles('Administrator', 'D
   const approved = req.body?.deidentifiedAndAuthorized === true;
   if (!approved) return res.status(400).json({ error: 'Confirm that the report is de-identified and AI processing is authorized before sending it.' });
   if (report.length < 30 || report.length > 20000) return res.status(400).json({ error: 'Report text must be between 30 and 20,000 characters.' });
-  const possibleIdentifier = /(?:[A-Z0-9._%+-]+@[A-Z0-9.-]+\\.[A-Z]{2,}|(?:\\+?91[\\s-]?)?[6-9]\\d{9}|\\b\\d{12}\\b)/i;
+  const possibleIdentifier = /(?:[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}|(?:\+?91[\s-]?)?[6-9]\d{9}|\b\d{12}\b)/i;
   if (possibleIdentifier.test(report)) return res.status(400).json({ error: 'Potential phone, email or national ID number detected. Remove patient identifiers before AI processing.' });
   const instructions = 'You assist a qualified doctor by summarizing a de-identified clinical report. Do not diagnose or recommend treatment. Do not infer missing facts. Preserve units, values, reference ranges and uncertainty exactly. Separate (1) concise overview, (2) numeric findings with values and ranges if present, (3) abnormalities explicitly flagged by the source, and (4) questions or points for clinician verification. State when the source does not provide reference ranges. Do not claim that an unflagged result is normal. Clearly label the output as a draft for clinician review.';
   const summary = await callOpenAI(instructions, `Summarize this de-identified report for clinician review. Preserve all numbers and units accurately.\n\n${report}`, 1600);
