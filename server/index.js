@@ -336,6 +336,53 @@ app.delete('/api/patients/:id', ...signedIn, requireRoles('Administrator'), hand
   res.json({ ok: true });
 }));
 
+app.get('/api/appointments', ...signedIn, handleAsync(async (req, res) => {
+  const result = await pool.query(
+    'SELECT id, patient_name, doctor_name, department, scheduled_at, reason, status, created_at FROM appointments ORDER BY scheduled_at DESC LIMIT 500'
+  );
+  res.json({ appointments: result.rows.map((row) => ({
+    id: row.id, patient: row.patient_name, doctor: row.doctor_name, department: row.department,
+    scheduledAt: row.scheduled_at, reason: row.reason, status: row.status, createdAt: row.created_at
+  })) });
+}));
+
+app.post('/api/appointments', ...signedIn, requireRoles('Administrator', 'Staff'), handleAsync(async (req, res) => {
+  const patient = cleanString(req.body?.patient || '', 120, 'Patient name', true);
+  const doctor = cleanString(req.body?.doctor || '', 120, 'Doctor name', true);
+  const department = cleanString(req.body?.department || '', 100, 'Department', true);
+  const reason = cleanString(req.body?.reason || '', 500, 'Reason');
+  const scheduledAt = req.body?.scheduledAt;
+  const when = new Date(scheduledAt);
+  if (typeof scheduledAt !== 'string' || Number.isNaN(when.getTime()) || when.getTime() < Date.now() - 5 * 60 * 1000) {
+    return res.status(400).json({ error: 'Choose a valid future appointment date and time.' });
+  }
+  const id = randomUUID();
+  const result = await pool.query(
+    \`INSERT INTO appointments (id, patient_name, doctor_name, department, scheduled_at, reason, created_by)
+     VALUES ($1,$2,$3,$4,$5,$6,$7)
+     RETURNING id, patient_name, doctor_name, department, scheduled_at, reason, status, created_at\`,
+    [id, patient, doctor, department, when.toISOString(), reason, req.user.id]
+  );
+  await audit(req.user.id, 'appointment_requested', 'appointment', id);
+  const row = result.rows[0];
+  res.status(201).json({ appointment: {
+    id: row.id, patient: row.patient_name, doctor: row.doctor_name, department: row.department,
+    scheduledAt: row.scheduled_at, reason: row.reason, status: row.status, createdAt: row.created_at
+  } });
+}));
+
+app.patch('/api/appointments/:id/status', ...signedIn, requireRoles('Administrator', 'Staff', 'Doctor'), handleAsync(async (req, res) => {
+  const allowed = ['Requested', 'Confirmed', 'Completed', 'Cancelled'];
+  if (!allowed.includes(req.body?.status)) return res.status(400).json({ error: 'Invalid appointment status.' });
+  const result = await pool.query(
+    'UPDATE appointments SET status = $1, updated_at = NOW() WHERE id = $2 RETURNING id',
+    [req.body.status, req.params.id]
+  );
+  if (!result.rows[0]) return res.status(404).json({ error: 'Appointment not found.' });
+  await audit(req.user.id, 'appointment_status_changed', 'appointment', req.params.id);
+  res.json({ ok: true });
+}));
+
 app.get('/api/invoices', ...signedIn, requireRoles('Administrator', 'Staff'), handleAsync(async (req, res) => {
   const result = await pool.query(
     'SELECT id, invoice_number, patient_name, service_description, amount::text, currency, status, created_at FROM invoices ORDER BY created_at DESC LIMIT 500'
