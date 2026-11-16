@@ -5,7 +5,7 @@ import rateLimit from 'express-rate-limit';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import pg from 'pg';
-import { randomUUID, createCipheriv, createDecipheriv } from 'node:crypto';
+import { randomUUID, randomBytes, createCipheriv, createDecipheriv } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -74,11 +74,7 @@ function decryptPrivateField(value) {
   decipher.setAuthTag(Buffer.from(tag64, 'base64'));
   return Buffer.concat([decipher.update(Buffer.from(data64, 'base64')), decipher.final()]).toString('utf8');
 }
-function cryptoRandomBytes(size) {
-  return randomUUID().replaceAll('-', '').slice(0, size * 2).match(/../g)
-    ? Buffer.from(randomUUID().replaceAll('-', '').slice(0, size * 2), 'hex')
-    : Buffer.alloc(size);
-}
+function cryptoRandomBytes(size) { return randomBytes(size); }
 function toUser(row) {
   return { id: row.id, username: row.username, name: row.full_name, role: row.role };
 }
