@@ -470,6 +470,13 @@ async function callOpenAI(instructions, input, maxOutputTokens = 900) {
 
 app.post('/api/assistant/chat', aiLimiter, handleAsync(async (req, res) => {
   const message = cleanString(req.body?.message || '', 1200, 'Message', true);
+  const possibleIdentifier = /(?:[A-Z0-9._%+-]+@[A-Z0-9.-]+\\.[A-Z]{2,}|(?:\\+?91[\\s-]?)?[6-9]\\d{9}|\\b\\d{12}\\b)/i;
+  if (possibleIdentifier.test(message)) {
+    return res.status(400).json({ error: 'Please remove phone numbers, email addresses, national ID numbers and patient identifiers from chat.' });
+  }
+  if (/\\b(my report|my test result|my diagnosis|my symptoms|my prescription|what medicine|medical record)\\b/i.test(message)) {
+    return res.status(400).json({ error: 'Please do not share personal medical information here. Contact clinic staff or a qualified clinician for patient-specific help.' });
+  }
   if (message.length < 2) return res.status(400).json({ error: 'Please enter a question.' });
   const clinic = {
     name: process.env.CLINIC_NAME || 'Jabalpur Clinic',
@@ -487,6 +494,8 @@ app.post('/api/reports/summarize', ...signedIn, requireRoles('Administrator', 'D
   const approved = req.body?.deidentifiedAndAuthorized === true;
   if (!approved) return res.status(400).json({ error: 'Confirm that the report is de-identified and AI processing is authorized before sending it.' });
   if (report.length < 30 || report.length > 20000) return res.status(400).json({ error: 'Report text must be between 30 and 20,000 characters.' });
+  const possibleIdentifier = /(?:[A-Z0-9._%+-]+@[A-Z0-9.-]+\\.[A-Z]{2,}|(?:\\+?91[\\s-]?)?[6-9]\\d{9}|\\b\\d{12}\\b)/i;
+  if (possibleIdentifier.test(report)) return res.status(400).json({ error: 'Potential phone, email or national ID number detected. Remove patient identifiers before AI processing.' });
   const instructions = 'You assist a qualified doctor by summarizing a de-identified clinical report. Do not diagnose or recommend treatment. Do not infer missing facts. Preserve units, values, reference ranges and uncertainty exactly. Separate (1) concise overview, (2) numeric findings with values and ranges if present, (3) abnormalities explicitly flagged by the source, and (4) questions or points for clinician verification. State when the source does not provide reference ranges. Do not claim that an unflagged result is normal. Clearly label the output as a draft for clinician review.';
   const summary = await callOpenAI(instructions, `Summarize this de-identified report for clinician review. Preserve all numbers and units accurately.\n\n${report}`, 1600);
   res.json({ summary, disclaimer: 'AI-generated draft only. A qualified clinician must review the source report and clinical context.' });
@@ -496,6 +505,7 @@ app.get('/', (req, res) => res.sendFile(path.join(projectRoot, 'index.html')));
 app.get('/index.html', (req, res) => res.sendFile(path.join(projectRoot, 'index.html')));
 app.get('/enhancements.js', (req, res) => res.sendFile(path.join(projectRoot, 'enhancements.js')));
 app.get('/config.js', (req, res) => res.sendFile(path.join(projectRoot, 'config.js')));
+app.get('/api-client.js', (req, res) => res.sendFile(path.join(projectRoot, 'api-client.js')));
 app.get('/favicon.ico', (req, res) => res.status(204).end());
 
 app.use('/api', (req, res) => res.status(404).json({ error: 'API endpoint not found.' }));
