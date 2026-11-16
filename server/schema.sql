@@ -5,6 +5,7 @@ CREATE TABLE IF NOT EXISTS app_users (
   role TEXT NOT NULL CHECK (role IN ('Administrator', 'Doctor', 'Staff')),
   password_hash TEXT NOT NULL,
   active BOOLEAN NOT NULL DEFAULT TRUE,
+  token_version INTEGER NOT NULL DEFAULT 0,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
@@ -70,3 +71,5 @@ CREATE TABLE IF NOT EXISTS appointments (
 
 CREATE INDEX IF NOT EXISTS appointments_scheduled_at_idx ON appointments (scheduled_at);
 CREATE INDEX IF NOT EXISTS appointments_status_idx ON appointments (status);
+
+ALTER TABLE app_users ADD COLUMN IF NOT EXISTS token_version INTEGER NOT NULL DEFAULT 0;
