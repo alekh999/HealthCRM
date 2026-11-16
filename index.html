@@ -577,6 +577,10 @@
                 sessionStorage.setItem('crmUser', JSON.stringify(currentUser));
                 if (newPassword) {
                     await window.HealthCRMAPI.post('/api/auth/change-password', { currentPassword, newPassword });
+                    window.alert('Password updated. Please sign in again with your new password.');
+                    await window.HealthCRMAPI.logout();
+                    window.location.reload();
+                    return;
                 }
                 userNameDisplay.textContent = currentUser.name;
                 userAvatar.textContent = currentUser.name.charAt(0).toUpperCase();
