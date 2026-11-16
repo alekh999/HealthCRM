@@ -338,11 +338,11 @@ app.delete('/api/patients/:id', ...signedIn, requireRoles('Administrator'), hand
 
 app.get('/api/appointments', ...signedIn, handleAsync(async (req, res) => {
   const result = await pool.query(
-    'SELECT id, patient_name, doctor_name, department, scheduled_at, reason, status, created_at FROM appointments ORDER BY scheduled_at DESC LIMIT 500'
+    'SELECT id, patient_name, doctor_name, department, scheduled_at, reason_enc, status, created_at FROM appointments ORDER BY scheduled_at DESC LIMIT 500'
   );
   res.json({ appointments: result.rows.map((row) => ({
     id: row.id, patient: row.patient_name, doctor: row.doctor_name, department: row.department,
-    scheduledAt: row.scheduled_at, reason: row.reason, status: row.status, createdAt: row.created_at
+    scheduledAt: row.scheduled_at, reason: decryptPrivateField(row.reason_enc), status: row.status, createdAt: row.created_at
   })) });
 }));
 
@@ -350,7 +350,7 @@ app.post('/api/appointments', ...signedIn, requireRoles('Administrator', 'Staff'
   const patient = cleanString(req.body?.patient || '', 120, 'Patient name', true);
   const doctor = cleanString(req.body?.doctor || '', 120, 'Doctor name', true);
   const department = cleanString(req.body?.department || '', 100, 'Department', true);
-  const reason = cleanString(req.body?.reason || '', 500, 'Reason');
+  const reasonEnc = encryptPrivateField(cleanString(req.body?.reason || '', 500, 'Reason'));
   const scheduledAt = req.body?.scheduledAt;
   const when = new Date(scheduledAt);
   if (typeof scheduledAt !== 'string' || Number.isNaN(when.getTime()) || when.getTime() < Date.now() - 5 * 60 * 1000) {
@@ -358,10 +358,10 @@ app.post('/api/appointments', ...signedIn, requireRoles('Administrator', 'Staff'
   }
   const id = randomUUID();
   const result = await pool.query(
-    \`INSERT INTO appointments (id, patient_name, doctor_name, department, scheduled_at, reason, created_by)
+    \`INSERT INTO appointments (id, patient_name, doctor_name, department, scheduled_at, reason_enc, created_by)
      VALUES ($1,$2,$3,$4,$5,$6,$7)
      RETURNING id, patient_name, doctor_name, department, scheduled_at, reason, status, created_at\`,
-    [id, patient, doctor, department, when.toISOString(), reason, req.user.id]
+    [id, patient, doctor, department, when.toISOString(), reasonEnc, req.user.id]
   );
   await audit(req.user.id, 'appointment_requested', 'appointment', id);
   const row = result.rows[0];
@@ -468,7 +468,7 @@ async function callOpenAI(instructions, input, maxOutputTokens = 900) {
   return outputText;
 }
 
-app.post('/api/assistant/chat', ...signedIn, aiLimiter, handleAsync(async (req, res) => {
+app.post('/api/assistant/chat', aiLimiter, handleAsync(async (req, res) => {
   const message = cleanString(req.body?.message || '', 1200, 'Message', true);
   if (message.length < 2) return res.status(400).json({ error: 'Please enter a question.' });
   const clinic = {
