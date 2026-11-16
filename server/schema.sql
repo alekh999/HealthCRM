@@ -61,7 +61,7 @@ CREATE TABLE IF NOT EXISTS appointments (
   doctor_name TEXT NOT NULL,
   department TEXT NOT NULL,
   scheduled_at TIMESTAMPTZ NOT NULL,
-  reason TEXT,
+  reason_enc TEXT,
   status TEXT NOT NULL DEFAULT 'Requested' CHECK (status IN ('Requested', 'Confirmed', 'Completed', 'Cancelled')),
   created_by UUID REFERENCES app_users(id) ON DELETE SET NULL,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
