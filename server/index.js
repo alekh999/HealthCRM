@@ -79,15 +79,15 @@ function toUser(row) {
   return { id: row.id, username: row.username, name: row.full_name, role: row.role };
 }
 function cleanString(value, maxLength, fieldName, required = false) {
-  if (typeof value !== 'string') throw new Error(`${fieldName} must be text.`);
+  if (typeof value !== 'string') { const error = new Error(`${fieldName} must be text.`); error.status = 400; throw error; }
   const result = value.trim();
-  if (required && !result) throw new Error(`${fieldName} is required.`);
-  if (result.length > maxLength) throw new Error(`${fieldName} is too long.`);
+  if (required && !result) { const error = new Error(`${fieldName} is required.`); error.status = 400; throw error; }
+  if (result.length > maxLength) { const error = new Error(`${fieldName} is too long.`); error.status = 400; throw error; }
   return result;
 }
 function validateDate(value) {
   if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value) || Number.isNaN(Date.parse(value))) {
-    throw new Error('Date of birth must be a valid YYYY-MM-DD date.');
+    { const error = new Error('Date of birth must be a valid YYYY-MM-DD date.'); error.status = 400; throw error; }
   }
   return value;
 }
