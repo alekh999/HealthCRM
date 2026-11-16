@@ -54,6 +54,6 @@ That setting is not a substitute for your clinic's privacy, security, consent, r
 
 - Render's free PostgreSQL plan expires after 30 days and has no backups. Upgrade to a paid database plan and configure backups before retaining any operational data. The free web service can spin down when idle; upgrade it for a dependable clinic workflow.
 - Use HTTPS only. Keep `JWT_SECRET`, `DATA_ENCRYPTION_KEY`, `BOOTSTRAP_ADMIN_PASSWORD`, database credentials and `OPENAI_API_KEY` in the backend secret manager, never in frontend code.
-- The current token is held in browser session storage for up to eight hours. For a public production deployment, put the frontend and API behind one controlled origin and move to secure, HttpOnly, SameSite cookies, add MFA, account recovery, session revocation, stronger audit/backup operations and security testing.
+- The current token is held in browser session storage for up to eight hours. Password changes increment a session version so other tokens are rejected. For a public production deployment, put the frontend and API behind one controlled origin and move to secure, HttpOnly, SameSite cookies, add MFA, account recovery, stronger audit/backup operations and security testing.
 - Configure the correct clinic address, telephone, opening hours and verified service information in the backend environment before customers rely on the assistant.
 - The report upload currently accepts text, CSV and Markdown. Convert PDF scans to text with an approved workflow before uploading; image/OCR extraction is not enabled.
