@@ -58,6 +58,7 @@ app.use(express.json({ limit: '1mb' }));
 const loginLimiter = rateLimit({ windowMs: 15 * 60 * 1000, limit: 10, standardHeaders: 'draft-8', legacyHeaders: false });
 const aiLimiter = rateLimit({ windowMs: 60 * 1000, limit: 12, standardHeaders: 'draft-8', legacyHeaders: false });
 const publicAppointmentLimiter = rateLimit({ windowMs: 15 * 60 * 1000, limit: 5, standardHeaders: 'draft-8', legacyHeaders: false });
+const internalMessageLimiter = rateLimit({ windowMs: 60 * 1000, limit: 30, standardHeaders: 'draft-8', legacyHeaders: false });
 
 const appointmentDirectory = {
   "General Medicine": [
@@ -397,6 +398,62 @@ app.post('/api/users', ...signedIn, requireRoles('Administrator'), handleAsync(a
     if (error.code === '23505') return res.status(409).json({ error: 'That username already exists.' });
     throw error;
   }
+}));
+
+// Internal staff messaging: authenticated accounts only; message content encrypted at rest.
+app.get('/api/messages/recipients', ...signedIn, handleAsync(async (req, res) => {
+  const result = await pool.query(
+    'SELECT id, full_name, username, role FROM app_users WHERE active = TRUE AND id <> $1 ORDER BY full_name ASC',
+    [req.user.id]
+  );
+  res.json({ recipients: result.rows.map((row) => ({ id: row.id, name: row.full_name, username: row.username, role: row.role })) });
+}));
+
+app.get('/api/messages', ...signedIn, handleAsync(async (req, res) => {
+  const folder = req.query.folder === 'sent' ? 'sent' : 'inbox';
+  const column = folder === 'sent' ? 'm.sender_user_id' : 'm.recipient_user_id';
+  const result = await pool.query(
+    `SELECT m.id, m.sender_user_id, m.recipient_user_id, m.subject_enc, m.body_enc, m.read_at, m.created_at,
+            sender.full_name AS sender_name, recipient.full_name AS recipient_name
+       FROM internal_messages m
+       JOIN app_users sender ON sender.id = m.sender_user_id
+       JOIN app_users recipient ON recipient.id = m.recipient_user_id
+      WHERE (m.sender_user_id = $1 OR m.recipient_user_id = $1) AND ${column} = $1
+      ORDER BY m.created_at DESC LIMIT 200`,
+    [req.user.id]
+  );
+  res.set('Cache-Control', 'no-store');
+  res.json({ messages: result.rows.map((row) => ({
+    id: row.id, senderId: row.sender_user_id, recipientId: row.recipient_user_id,
+    sender: row.sender_name, recipient: row.recipient_name,
+    subject: decryptPrivateField(row.subject_enc), body: decryptPrivateField(row.body_enc),
+    readAt: row.read_at, createdAt: row.created_at
+  })) });
+}));
+
+app.post('/api/messages', ...signedIn, internalMessageLimiter, handleAsync(async (req, res) => {
+  const recipientId = cleanString(req.body?.recipientId || '', 64, 'Recipient', true);
+  const subject = cleanString(req.body?.subject || '', 120, 'Subject', true);
+  const body = cleanString(req.body?.body || '', 4000, 'Message', true);
+  if (recipientId === req.user.id) return res.status(400).json({ error: 'Choose another staff member as the recipient.' });
+  const recipient = await pool.query('SELECT id FROM app_users WHERE id = $1 AND active = TRUE', [recipientId]);
+  if (!recipient.rowCount) return res.status(404).json({ error: 'That staff account is not available.' });
+  const id = randomUUID();
+  await pool.query(
+    'INSERT INTO internal_messages (id, sender_user_id, recipient_user_id, subject_enc, body_enc) VALUES ($1,$2,$3,$4,$5)',
+    [id, req.user.id, recipientId, encryptPrivateField(subject), encryptPrivateField(body)]
+  );
+  await audit(req.user.id, 'internal_message_sent', 'internal_message', id);
+  res.status(201).json({ ok: true, id, message: 'Message sent securely.' });
+}));
+
+app.patch('/api/messages/:id/read', ...signedIn, handleAsync(async (req, res) => {
+  const result = await pool.query(
+    'UPDATE internal_messages SET read_at = COALESCE(read_at, NOW()) WHERE id = $1 AND recipient_user_id = $2 RETURNING id, read_at',
+    [req.params.id, req.user.id]
+  );
+  if (!result.rowCount) return res.status(404).json({ error: 'Message not found in your inbox.' });
+  res.json({ ok: true, readAt: result.rows[0].read_at });
 }));
 
 app.get('/api/dashboard/summary', ...signedIn, handleAsync(async (req, res) => {
