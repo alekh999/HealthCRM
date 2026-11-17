@@ -823,8 +823,64 @@
     showStatus('#report-summary-status', '');
   });
 
+  // Dashboard KPIs and upcoming list are always calculated from live database records.
+  async function loadDashboard() {
+    if (!api.token) return;
+    const status = $('#dashboard-status');
+    const setText = (selector, value) => { const el = $(selector); if (el) el.textContent = String(value); };
+    try {
+      if (status) status.textContent = 'Refreshing live clinic data…';
+      const data = await api.get('/api/dashboard/summary');
+      const summary = data.summary || {};
+      setText('#dashboard-total-patients', summary.totalPatients ?? 0);
+      setText('#dashboard-today-appointments', summary.appointmentsToday ?? 0);
+      setText('#dashboard-upcoming-appointments', summary.upcomingAppointments ?? 0);
+      setText('#dashboard-pending-invoices', summary.pendingInvoices ?? 0);
+      setText('#dashboard-new-patients', summary.newPatientsThisMonth ?? 0);
+      setText('#dashboard-completed-appointments', summary.completedAppointments ?? 0);
+      setText('#dashboard-paid-amount', moneyINR(summary.paidAmount));
+      setText('#dashboard-pending-amount', moneyINR(summary.pendingAmount));
+      const list = $('#dashboard-upcoming-list');
+      if (list) {
+        list.replaceChildren();
+        const items = summary.upcoming || [];
+        if (!items.length) {
+          const empty = document.createElement('li');
+          empty.className = 'text-sm text-gray-500 dark:text-gray-400';
+          empty.textContent = 'No upcoming appointments.';
+          list.appendChild(empty);
+        } else {
+          items.forEach((item) => {
+            const li = document.createElement('li');
+            li.className = 'text-sm text-gray-600 dark:text-gray-300 border-b dark:border-gray-700 pb-2 last:border-b-0';
+            const who = document.createElement('p');
+            const patient = document.createElement('span');
+            patient.className = 'font-medium dark:text-gray-100';
+            patient.textContent = item.patient || 'Patient';
+            who.append(patient, document.createTextNode(' with ' + (item.doctor || 'Doctor')));
+            const when = document.createElement('p');
+            const date = new Date(item.scheduledAt);
+            when.textContent = Number.isNaN(date.getTime()) ? 'Date to be confirmed' : new Intl.DateTimeFormat('en-IN', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'Asia/Kolkata' }).format(date);
+            const detail = document.createElement('p');
+            detail.className = 'text-xs text-gray-500 dark:text-gray-400';
+            detail.textContent = (item.department || 'Department') + ' · ' + (item.status || 'Requested');
+            li.append(who, when, detail);
+            list.appendChild(li);
+          });
+        }
+      }
+      if (status) status.textContent = 'Live figures from the clinic database · Updated ' + new Intl.DateTimeFormat('en-IN', { timeStyle: 'short' }).format(new Date());
+    } catch (error) {
+      if (status) {
+        status.textContent = 'Could not refresh dashboard: ' + error.message;
+        status.classList.add('text-red-600');
+      }
+    }
+  }
+
   function reloadBackendData() {
     if (!api.token) return;
+    loadDashboard();
     loadPatients(patientSearch?.value.trim() || '');
     loadInvoices();
     loadAppointments();
@@ -846,6 +902,7 @@
 
   document.getElementById('sidebar-nav')?.addEventListener('click', (event) => {
     const page = event.target.closest('[data-page]')?.dataset.page;
+    if (page === 'dashboard') loadDashboard();
     if (page === 'patients') loadPatients(patientSearch?.value.trim() || '');
     if (page === 'billing') loadInvoices();
     if (page === 'appointments') loadAppointments();
