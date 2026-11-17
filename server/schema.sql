@@ -76,3 +76,18 @@ CREATE INDEX IF NOT EXISTS appointments_status_idx ON appointments (status);
 ALTER TABLE app_users ADD COLUMN IF NOT EXISTS token_version INTEGER NOT NULL DEFAULT 0;
 
 ALTER TABLE appointments ADD COLUMN IF NOT EXISTS contact_enc TEXT;
+
+
+CREATE TABLE IF NOT EXISTS internal_messages (
+  id UUID PRIMARY KEY,
+  sender_user_id UUID NOT NULL REFERENCES app_users(id) ON DELETE CASCADE,
+  recipient_user_id UUID NOT NULL REFERENCES app_users(id) ON DELETE CASCADE,
+  subject_enc TEXT NOT NULL,
+  body_enc TEXT NOT NULL,
+  read_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  CHECK (sender_user_id <> recipient_user_id)
+);
+
+CREATE INDEX IF NOT EXISTS internal_messages_inbox_idx ON internal_messages (recipient_user_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS internal_messages_sent_idx ON internal_messages (sender_user_id, created_at DESC);
