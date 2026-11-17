@@ -149,6 +149,7 @@
       try {
         await api.remove('/api/patients/' + encodeURIComponent(patient.id));
         await loadPatients(patientSearch?.value.trim() || '');
+        await loadDashboard();
       } catch (error) {
         window.alert(error.message);
       }
@@ -190,6 +191,7 @@
       addPatientForm.reset();
       closeModal(addPatientModal);
       await loadPatients(patientSearch?.value.trim() || '');
+      await loadDashboard();
       showStatus('#patient-status', 'Patient saved to the clinic database.');
     } catch (error) {
       showStatus('#patient-status', error.message, true);
@@ -215,6 +217,7 @@
       await api.patch('/api/patients/' + encodeURIComponent(id), body);
       closeModal(editPatientModal);
       await loadPatients(patientSearch?.value.trim() || '');
+      await loadDashboard();
       showStatus('#patient-status', 'Patient record updated.');
     } catch (error) {
       showStatus('#patient-status', error.message, true);
@@ -293,6 +296,7 @@
       form.reset();
       showStatus('#invoice-status', 'Invoice saved to the clinic database in INR.');
       await loadInvoices();
+      await loadDashboard();
     } catch (error) {
       showStatus('#invoice-status', error.message, true);
     } finally {
@@ -307,6 +311,7 @@
     try {
       await api.patch('/api/invoices/' + encodeURIComponent(button.dataset.invoiceId) + '/status', { status: 'Paid' });
       await loadInvoices();
+      await loadDashboard();
     } catch (error) {
       showStatus('#invoice-status', error.message, true);
       setButtonBusy(button, false);
@@ -641,6 +646,7 @@
       form.reset();
       showStatus('#appointment-status-message', 'Appointment request saved. Confirm the slot with reception.');
       await loadAppointments();
+      await loadDashboard();
     } catch (error) {
       showStatus('#appointment-status-message', error.message, true);
     } finally {
@@ -655,6 +661,7 @@
         status: button.dataset.appointmentStatus
       });
       await loadAppointments();
+      await loadDashboard();
     } catch (error) {
       window.alert(error.message);
     }
