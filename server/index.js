@@ -496,10 +496,10 @@ app.delete('/api/patients/:id', ...signedIn, requireRoles('Administrator'), hand
 
 app.get('/api/appointments', ...signedIn, handleAsync(async (req, res) => {
   const result = await pool.query(
-    'SELECT id, patient_name, doctor_name, department, scheduled_at, reason_enc, status, created_at FROM appointments ORDER BY scheduled_at DESC LIMIT 500'
+    'SELECT id, patient_name, doctor_name, department, scheduled_at, reason_enc, contact_enc, status, created_at FROM appointments ORDER BY scheduled_at DESC LIMIT 500'
   );
   res.json({ appointments: result.rows.map((row) => ({
-    id: row.id, patient: row.patient_name, doctor: row.doctor_name, department: row.department,
+    id: row.id, patient: row.patient_name, contact: decryptPrivateField(row.contact_enc), doctor: row.doctor_name, department: row.department,
     scheduledAt: row.scheduled_at, reason: decryptPrivateField(row.reason_enc), status: row.status, createdAt: row.created_at
   })) });
 }));
