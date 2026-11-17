@@ -59,6 +59,161 @@ const loginLimiter = rateLimit({ windowMs: 15 * 60 * 1000, limit: 10, standardHe
 const aiLimiter = rateLimit({ windowMs: 60 * 1000, limit: 12, standardHeaders: 'draft-8', legacyHeaders: false });
 const publicAppointmentLimiter = rateLimit({ windowMs: 15 * 60 * 1000, limit: 5, standardHeaders: 'draft-8', legacyHeaders: false });
 
+const appointmentDirectory = {
+  "General Medicine": [
+    "Dr. Aarav Mehta",
+    "Dr. Nisha Kulkarni"
+  ],
+  "Cardiology": [
+    "Dr. Vivaan Kapoor",
+    "Dr. Meera Sethi"
+  ],
+  "Cardiothoracic Surgery": [
+    "Dr. Raghav Menon",
+    "Dr. Kavya Rao"
+  ],
+  "Neurology": [
+    "Dr. Ishaan Malhotra",
+    "Dr. Tanvi Desai"
+  ],
+  "Neurosurgery": [
+    "Dr. Arjun Bhatia"
+  ],
+  "Orthopaedics & Joint Replacement": [
+    "Dr. Kabir Chawla",
+    "Dr. Ritu Sharma"
+  ],
+  "Paediatrics": [
+    "Dr. Advait Joshi",
+    "Dr. Myra Nair"
+  ],
+  "Neonatology": [
+    "Dr. Reyansh Gupta"
+  ],
+  "Obstetrics & Gynaecology": [
+    "Dr. Ananya Iyer",
+    "Dr. Saanvi Mishra"
+  ],
+  "Fertility & Reproductive Medicine": [
+    "Dr. Kiara Shah"
+  ],
+  "Dermatology": [
+    "Dr. Aditi Khanna",
+    "Dr. Vihaan Roy"
+  ],
+  "Psychiatry": [
+    "Dr. Dhruv Sen",
+    "Dr. Ira Mukherjee"
+  ],
+  "Psychology & Counselling": [
+    "Dr. Tara Bose"
+  ],
+  "ENT (Otolaryngology)": [
+    "Dr. Neel Agarwal",
+    "Dr. Pooja Pillai"
+  ],
+  "Ophthalmology": [
+    "Dr. Samar Khurana",
+    "Dr. Diya Thomas"
+  ],
+  "Dental & Maxillofacial Surgery": [
+    "Dr. Yash Patel",
+    "Dr. Rhea Fernandes"
+  ],
+  "Gastroenterology": [
+    "Dr. Manav Sinha",
+    "Dr. Siya Reddy"
+  ],
+  "Hepatology": [
+    "Dr. Kunal Bansal"
+  ],
+  "Nephrology": [
+    "Dr. Atharv Jain",
+    "Dr. Mahi Verma"
+  ],
+  "Urology": [
+    "Dr. Parth Deshmukh",
+    "Dr. Esha Kapoor"
+  ],
+  "Pulmonology & Respiratory Medicine": [
+    "Dr. Om Prakash",
+    "Dr. Anika Dutta"
+  ],
+  "Endocrinology & Diabetes": [
+    "Dr. Harsh Vardhan",
+    "Dr. Navya Rao"
+  ],
+  "Medical Oncology": [
+    "Dr. Siddharth Bose",
+    "Dr. Vanya Khare"
+  ],
+  "Surgical Oncology": [
+    "Dr. Rudra Nambiar"
+  ],
+  "Hematology": [
+    "Dr. Prisha Ghosh"
+  ],
+  "Rheumatology": [
+    "Dr. Aditya Menon"
+  ],
+  "Infectious Diseases": [
+    "Dr. Zoya Khan"
+  ],
+  "General & Laparoscopic Surgery": [
+    "Dr. Keshav Tripathi",
+    "Dr. Simran Kaur"
+  ],
+  "Vascular Surgery": [
+    "Dr. Nikhil Bedi"
+  ],
+  "Plastic & Reconstructive Surgery": [
+    "Dr. Aarohi Sood"
+  ],
+  "Burns & Wound Care": [
+    "Dr. Madhav Tiwari"
+  ],
+  "Emergency Medicine": [
+    "Dr. Shaurya Kulkarni",
+    "Dr. Isha Chatterjee"
+  ],
+  "Critical Care & Intensive Care": [
+    "Dr. Veer Pratap"
+  ],
+  "Anaesthesiology & Pain Medicine": [
+    "Dr. Rohan D'Souza"
+  ],
+  "Radiology & Imaging": [
+    "Dr. Pranav Saxena",
+    "Dr. Muskaan Ali"
+  ],
+  "Pathology & Laboratory Medicine": [
+    "Dr. Ekansh Dubey",
+    "Dr. Sneha Rangan"
+  ],
+  "Physiotherapy & Rehabilitation": [
+    "Dr. Lakshya Arora",
+    "Dr. Pari Malhotra"
+  ],
+  "Nutrition & Dietetics": [
+    "Dr. Riddhi Shah"
+  ],
+  "Speech & Swallowing Therapy": [
+    "Dr. Ayaan Fernandes"
+  ],
+  "Audiology": [
+    "Dr. Kriti Anand"
+  ],
+  "Occupational Therapy": [
+    "Dr. Samarjeet Kaur"
+  ],
+  "Sleep Medicine": [
+    "Dr. Naman Choudhary"
+  ],
+  "Palliative Care": [
+    "Dr. Amrita Sen"
+  ]
+};
+
 const key = Buffer.from(process.env.DATA_ENCRYPTION_KEY, 'base64');
 function encryptPrivateField(value) {
   if (value === undefined || value === null || value === '') return null;
@@ -353,6 +508,9 @@ app.post('/api/appointments', ...signedIn, requireRoles('Administrator', 'Staff'
   const patient = cleanString(req.body?.patient || '', 120, 'Patient name', true);
   const doctor = cleanString(req.body?.doctor || '', 120, 'Doctor name', true);
   const department = cleanString(req.body?.department || '', 100, 'Department', true);
+  if (!appointmentDirectory[department] || !appointmentDirectory[department].includes(doctor)) {
+    return res.status(400).json({ error: 'Choose a doctor listed under the selected department.' });
+  }
   const reasonEnc = encryptPrivateField(cleanString(req.body?.reason || '', 500, 'Reason'));
   const scheduledAt = req.body?.scheduledAt;
   const when = new Date(scheduledAt);
