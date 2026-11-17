@@ -57,6 +57,7 @@ app.use(express.json({ limit: '1mb' }));
 
 const loginLimiter = rateLimit({ windowMs: 15 * 60 * 1000, limit: 10, standardHeaders: 'draft-8', legacyHeaders: false });
 const aiLimiter = rateLimit({ windowMs: 60 * 1000, limit: 12, standardHeaders: 'draft-8', legacyHeaders: false });
+const publicAppointmentLimiter = rateLimit({ windowMs: 15 * 60 * 1000, limit: 5, standardHeaders: 'draft-8', legacyHeaders: false });
 
 const key = Buffer.from(process.env.DATA_ENCRYPTION_KEY, 'base64');
 function encryptPrivateField(value) {
@@ -372,6 +373,33 @@ app.post('/api/appointments', ...signedIn, requireRoles('Administrator', 'Staff'
     id: row.id, patient: row.patient_name, doctor: row.doctor_name, department: row.department,
     scheduledAt: row.scheduled_at, reason: decryptPrivateField(row.reason_enc), status: row.status, createdAt: row.created_at
   } });
+}));
+
+app.post('/api/public/appointments', publicAppointmentLimiter, handleAsync(async (req, res) => {
+  // A hidden honeypot field filters simple automated submissions without affecting patients.
+  if (typeof req.body?.website === 'string' && req.body.website.trim()) {
+    return res.status(201).json({ ok: true, reference: 'JCP-' + randomUUID().slice(0, 8).toUpperCase() });
+  }
+  const patient = cleanString(req.body?.patient || '', 120, 'Patient name', true);
+  const phone = cleanString(req.body?.phone || '', 20, 'Mobile number', true);
+  if (!/^[+0-9() -]{7,20}$/.test(phone)) return res.status(400).json({ error: 'Enter a valid contact number.' });
+  const doctor = cleanString(req.body?.doctor || '', 120, 'Doctor name', true);
+  const department = cleanString(req.body?.department || '', 100, 'Department', true);
+  const reasonEnc = encryptPrivateField(cleanString(req.body?.reason || '', 300, 'Reason'));
+  const phoneEnc = encryptPrivateField(phone);
+  const scheduledAt = req.body?.scheduledAt;
+  const when = new Date(scheduledAt);
+  if (typeof scheduledAt !== 'string' || Number.isNaN(when.getTime()) || when.getTime() <= Date.now()) {
+    return res.status(400).json({ error: 'Choose a valid future appointment date and time.' });
+  }
+  const id = randomUUID();
+  await pool.query(
+    `INSERT INTO appointments (id, patient_name, doctor_name, department, scheduled_at, reason_enc, contact_enc, created_by)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,NULL)`,
+    [id, patient, doctor, department, when.toISOString(), reasonEnc, phoneEnc]
+  );
+  await audit(null, 'public_appointment_requested', 'appointment', id);
+  res.status(201).json({ ok: true, reference: 'JCP-' + id.slice(0, 8).toUpperCase() });
 }));
 
 app.patch('/api/appointments/:id/status', ...signedIn, requireRoles('Administrator', 'Staff', 'Doctor'), handleAsync(async (req, res) => {
