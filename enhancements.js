@@ -703,6 +703,134 @@
     });
   }
 
+  // Secure internal staff messaging.
+  const internalMessageForm = $('#internal-message-form');
+  const internalMessageList = $('#messages-list');
+  const messageRecipient = $('#message-recipient');
+  let messageFolder = 'inbox';
+  let staffRecipients = [];
+
+  async function loadMessageRecipients() {
+    if (!api.token || !messageRecipient) return;
+    try {
+      const data = await api.get('/api/messages/recipients');
+      staffRecipients = data.recipients || [];
+      messageRecipient.replaceChildren(new Option('Choose a staff member', ''));
+      staffRecipients.forEach((user) => {
+        const option = new Option(user.name + ' · ' + user.role, user.id);
+        messageRecipient.appendChild(option);
+      });
+      if (!staffRecipients.length) messageRecipient.replaceChildren(new Option('No other active staff accounts', ''));
+    } catch (error) {
+      messageRecipient.replaceChildren(new Option('Could not load staff list', ''));
+      showStatus('#messages-status', error.message, true);
+    }
+  }
+
+  function renderInternalMessages(messages) {
+    if (!internalMessageList) return;
+    internalMessageList.replaceChildren();
+    if (!messages.length) {
+      const empty = document.createElement('p');
+      empty.className = 'text-sm text-gray-500 dark:text-gray-400';
+      empty.textContent = messageFolder === 'inbox' ? 'Your inbox is empty.' : 'You have not sent any messages yet.';
+      internalMessageList.appendChild(empty);
+      return;
+    }
+    messages.forEach((message) => {
+      const card = document.createElement('article');
+      card.className = 'rounded-lg border border-gray-200 dark:border-gray-700 p-4 space-y-2';
+      const top = document.createElement('div');
+      top.className = 'flex flex-wrap items-start justify-between gap-2';
+      const title = document.createElement('h3');
+      title.className = 'font-semibold text-gray-800 dark:text-gray-100';
+      title.textContent = message.subject;
+      const date = document.createElement('time');
+      date.className = 'text-xs text-gray-500';
+      const parsed = new Date(message.createdAt);
+      date.textContent = Number.isNaN(parsed.getTime()) ? '' : new Intl.DateTimeFormat('en-IN', { dateStyle: 'medium', timeStyle: 'short' }).format(parsed);
+      top.append(title, date);
+      const meta = document.createElement('p');
+      meta.className = 'text-xs text-gray-500 dark:text-gray-400';
+      meta.textContent = messageFolder === 'inbox' ? 'From: ' + message.sender : 'To: ' + message.recipient;
+      const body = document.createElement('p');
+      body.className = 'text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap break-words';
+      body.textContent = message.body;
+      card.append(top, meta, body);
+      if (messageFolder === 'inbox' && !message.readAt) {
+        const readButton = document.createElement('button');
+        readButton.type = 'button';
+        readButton.className = 'text-xs text-blue-700 dark:text-blue-300 hover:underline';
+        readButton.textContent = 'Mark as read';
+        readButton.addEventListener('click', async () => {
+          readButton.disabled = true;
+          try { await api.patch('/api/messages/' + encodeURIComponent(message.id) + '/read', {}); await loadInternalMessages(); }
+          catch (error) { showStatus('#messages-status', error.message, true); readButton.disabled = false; }
+        });
+        card.appendChild(readButton);
+      } else if (messageFolder === 'inbox') {
+        const read = document.createElement('p');
+        read.className = 'text-xs text-green-700 dark:text-green-400';
+        read.textContent = 'Read';
+        card.appendChild(read);
+      }
+      internalMessageList.appendChild(card);
+    });
+  }
+
+  async function loadInternalMessages() {
+    if (!api.token || !internalMessageList) return;
+    internalMessageList.replaceChildren();
+    const loading = document.createElement('p');
+    loading.className = 'text-sm text-gray-500';
+    loading.textContent = 'Loading secure messages…';
+    internalMessageList.appendChild(loading);
+    try {
+      const data = await api.get('/api/messages?folder=' + messageFolder);
+      renderInternalMessages(data.messages || []);
+      showStatus('#messages-status', (data.messages || []).length + ' message(s) loaded securely.');
+    } catch (error) {
+      internalMessageList.replaceChildren();
+      const problem = document.createElement('p');
+      problem.className = 'text-sm text-red-600';
+      problem.textContent = error.message;
+      internalMessageList.appendChild(problem);
+      showStatus('#messages-status', error.message, true);
+    }
+  }
+
+  internalMessageForm?.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const button = $('#message-send-button');
+    setButtonBusy(button, true, 'Sending…');
+    try {
+      await api.post('/api/messages', {
+        recipientId: messageRecipient.value,
+        subject: $('#message-subject').value.trim(),
+        body: $('#message-body').value.trim()
+      });
+      internalMessageForm.reset();
+      showStatus('#messages-status', 'Message sent and encrypted for storage.');
+      messageFolder = 'sent';
+      setMessageTabStyles();
+      await loadInternalMessages();
+    } catch (error) {
+      showStatus('#messages-status', error.message, true);
+    } finally { setButtonBusy(button, false); }
+  });
+
+  function setMessageTabStyles() {
+    const inbox = $('#messages-inbox-tab');
+    const sent = $('#messages-sent-tab');
+    inbox?.classList.toggle('bg-blue-600', messageFolder === 'inbox');
+    inbox?.classList.toggle('text-white', messageFolder === 'inbox');
+    sent?.classList.toggle('bg-blue-600', messageFolder === 'sent');
+    sent?.classList.toggle('text-white', messageFolder === 'sent');
+  }
+  $('#messages-inbox-tab')?.addEventListener('click', () => { messageFolder = 'inbox'; setMessageTabStyles(); loadInternalMessages(); });
+  $('#messages-sent-tab')?.addEventListener('click', () => { messageFolder = 'sent'; setMessageTabStyles(); loadInternalMessages(); });
+  $('#messages-refresh')?.addEventListener('click', () => { loadMessageRecipients(); loadInternalMessages(); });
+
   // AI assistant: messages are sent to the backend; the browser never sees the API key.
   async function sendAssistantQuestion(input, messagesElement, submitButton) {
     const question = String(input?.value || '').trim();
@@ -888,6 +1016,7 @@
   function reloadBackendData() {
     if (!api.token) return;
     loadDashboard();
+    loadMessageRecipients();
     loadPatients(patientSearch?.value.trim() || '');
     loadInvoices();
     loadAppointments();
@@ -910,6 +1039,7 @@
   document.getElementById('sidebar-nav')?.addEventListener('click', (event) => {
     const page = event.target.closest('[data-page]')?.dataset.page;
     if (page === 'dashboard') loadDashboard();
+    if (page === 'messages') { loadMessageRecipients(); loadInternalMessages(); }
     if (page === 'patients') loadPatients(patientSearch?.value.trim() || '');
     if (page === 'billing') loadInvoices();
     if (page === 'appointments') loadAppointments();
