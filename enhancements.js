@@ -494,6 +494,84 @@
     });
   }
 
+  // Public patient appointment request form (no staff login required).
+  const publicBookingToggle = $('#public-booking-toggle');
+  const publicBookingPanel = $('#public-booking-panel');
+  publicBookingToggle?.addEventListener('click', () => {
+    publicBookingPanel?.classList.toggle('hidden');
+    if (publicBookingPanel && !publicBookingPanel.classList.contains('hidden')) {
+      publicBookingPanel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+  });
+  const publicDepartment = $('#public-appointment-department');
+  const publicDoctor = $('#public-appointment-doctor');
+  if (publicDepartment && publicDoctor) {
+    Object.keys(appointmentDirectory).sort((a, b) => a.localeCompare(b)).forEach((department) => {
+      const option = document.createElement('option');
+      option.value = department;
+      option.textContent = department;
+      publicDepartment.appendChild(option);
+    });
+    publicDepartment.addEventListener('change', () => {
+      publicDoctor.replaceChildren();
+      const doctors = appointmentDirectory[publicDepartment.value] || [];
+      const placeholder = document.createElement('option');
+      placeholder.value = '';
+      placeholder.textContent = doctors.length ? 'Select a doctor' : 'Select a department first';
+      publicDoctor.appendChild(placeholder);
+      doctors.forEach((doctor) => {
+        const option = document.createElement('option');
+        option.value = doctor;
+        option.textContent = doctor;
+        publicDoctor.appendChild(option);
+      });
+      publicDoctor.disabled = doctors.length === 0;
+    });
+  }
+  const publicDate = $('#public-appointment-date');
+  if (publicDate) {
+    const now = new Date();
+    now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+    publicDate.min = now.toISOString().slice(0, 16);
+  }
+  $('#public-appointment-form')?.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const button = $('#public-appointment-submit');
+    const status = $('#public-appointment-status');
+    const say = (message, error = false) => {
+      status.textContent = message;
+      status.classList.toggle('text-red-600', error);
+      status.classList.toggle('text-green-700', !error);
+    };
+    button.disabled = true;
+    button.textContent = 'Submitting…';
+    try {
+      const when = new Date(publicDate.value);
+      if (!publicDate.value || Number.isNaN(when.getTime()) || when.getTime() <= Date.now()) {
+        throw new Error('Please choose a future date and time.');
+      }
+      const result = await api.post('/api/public/appointments', {
+        patient: $('#public-appointment-patient').value.trim(),
+        phone: $('#public-appointment-phone').value.trim(),
+        doctor: publicDoctor.value,
+        department: publicDepartment.value,
+        scheduledAt: when.toISOString(),
+        reason: $('#public-appointment-reason').value.trim(),
+        website: $('#public-appointment-website').value
+      });
+      form.reset();
+      publicDoctor.replaceChildren(new Option('Select a department first', ''));
+      publicDoctor.disabled = true;
+      say('Request received! Your reference number is ' + result.reference + '. Clinic reception will contact you to confirm the appointment.');
+    } catch (error) {
+      say(error.message || 'Unable to submit your request. Please try again.', true);
+    } finally {
+      button.disabled = false;
+      button.textContent = 'Send appointment request';
+    }
+  });
+
   // Appointments: database-backed request and status tracking.
   const appointmentBody = $('#appointment-table-body');
   let appointments = [];
