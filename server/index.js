@@ -399,6 +399,43 @@ app.post('/api/users', ...signedIn, requireRoles('Administrator'), handleAsync(a
   }
 }));
 
+app.get('/api/dashboard/summary', ...signedIn, handleAsync(async (req, res) => {
+  const [counts, upcoming] = await Promise.all([
+    pool.query(
+      `SELECT
+        (SELECT COUNT(*) FROM patients)::int AS total_patients,
+        (SELECT COUNT(*) FROM appointments WHERE (scheduled_at AT TIME ZONE 'Asia/Kolkata')::date = (NOW() AT TIME ZONE 'Asia/Kolkata')::date AND status <> 'Cancelled')::int AS appointments_today,
+        (SELECT COUNT(*) FROM appointments WHERE scheduled_at >= NOW() AND status IN ('Requested', 'Confirmed'))::int AS upcoming_appointments,
+        (SELECT COUNT(*) FROM invoices WHERE status = 'Pending')::int AS pending_invoices,
+        COALESCE((SELECT SUM(amount) FROM invoices WHERE status = 'Pending'), 0)::text AS pending_amount,
+        COALESCE((SELECT SUM(amount) FROM invoices WHERE status = 'Paid'), 0)::text AS paid_amount,
+        (SELECT COUNT(*) FROM patients WHERE date_trunc('month', created_at AT TIME ZONE 'Asia/Kolkata') = date_trunc('month', NOW() AT TIME ZONE 'Asia/Kolkata'))::int AS new_patients_this_month,
+        (SELECT COUNT(*) FROM appointments WHERE status = 'Completed')::int AS completed_appointments`
+    ),
+    pool.query(
+      `SELECT patient_name, doctor_name, department, scheduled_at, status
+       FROM appointments
+       WHERE scheduled_at >= NOW() AND status IN ('Requested', 'Confirmed')
+       ORDER BY scheduled_at ASC LIMIT 5`
+    )
+  ]);
+  const row = counts.rows[0];
+  res.json({ summary: {
+    totalPatients: Number(row.total_patients),
+    appointmentsToday: Number(row.appointments_today),
+    upcomingAppointments: Number(row.upcoming_appointments),
+    pendingInvoices: Number(row.pending_invoices),
+    pendingAmount: Number(row.pending_amount),
+    paidAmount: Number(row.paid_amount),
+    newPatientsThisMonth: Number(row.new_patients_this_month),
+    completedAppointments: Number(row.completed_appointments),
+    upcoming: upcoming.rows.map((item) => ({
+      patient: item.patient_name, doctor: item.doctor_name, department: item.department,
+      scheduledAt: item.scheduled_at, status: item.status
+    }))
+  } });
+}));
+
 app.get('/api/patients', ...signedIn, handleAsync(async (req, res) => {
   const q = typeof req.query.q === 'string' ? req.query.q.trim().slice(0, 100) : '';
   const result = await pool.query(
