@@ -204,7 +204,25 @@
                     <p class="text-xs text-amber-700 dark:text-amber-300">Invoices are stored in the clinic database. Confirm all payment entries against the official payment record.</p>
                 </div>
 
-                <div id="page-messages" class="page-content hidden space-y-6"><h1 class="text-3xl font-semibold text-gray-800 dark:text-gray-100">Internal Messages</h1><p class="text-gray-500 dark:text-gray-400">Internal messaging requires a secure staff backend before it is used for real patient communication.</p></div>
+                <div id="page-messages" class="page-content hidden space-y-6">
+                    <div><h1 class="text-3xl font-semibold text-gray-800 dark:text-gray-100">Internal Messages</h1><p class="text-gray-500 dark:text-gray-400 mt-1">Secure, staff-only messages stored in the clinic database.</p><p id="messages-status" class="text-xs text-gray-500 dark:text-gray-400 mt-1" aria-live="polite"></p></div>
+                    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                        <section class="lg:col-span-1 bg-white dark:bg-gray-800 p-5 rounded-lg shadow space-y-4">
+                            <h2 class="text-lg font-semibold text-gray-800 dark:text-gray-100">Compose message</h2>
+                            <form id="internal-message-form" class="space-y-3">
+                                <div><label for="message-recipient" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Send to staff member</label><select id="message-recipient" required class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg"><option value="">Loading staff list…</option></select></div>
+                                <div><label for="message-subject" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Subject</label><input id="message-subject" required maxlength="120" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg" placeholder="Message subject"/></div>
+                                <div><label for="message-body" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Message</label><textarea id="message-body" required maxlength="4000" rows="6" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg" placeholder="Write your message…"></textarea><p class="text-xs text-gray-500">Do not use internal messages for emergencies or share unnecessary patient-identifying information.</p></div>
+                                <button id="message-send-button" type="submit" class="w-full px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg">Send securely</button>
+                            </form>
+                        </section>
+                        <section class="lg:col-span-2 bg-white dark:bg-gray-800 p-5 rounded-lg shadow space-y-4">
+                            <div class="flex flex-wrap items-center justify-between gap-3"><h2 class="text-lg font-semibold text-gray-800 dark:text-gray-100">Your messages</h2><div class="flex gap-2"><button type="button" id="messages-inbox-tab" class="px-3 py-1.5 text-sm rounded-lg bg-blue-600 text-white">Inbox</button><button type="button" id="messages-sent-tab" class="px-3 py-1.5 text-sm rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200">Sent</button><button type="button" id="messages-refresh" class="px-3 py-1.5 text-sm rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200">Refresh</button></div></div>
+                            <div id="messages-list" class="space-y-3" aria-live="polite"><p class="text-sm text-gray-500">Sign in to load messages.</p></div>
+                        </section>
+                    </div>
+                    <p class="text-xs text-gray-500 dark:text-gray-400">Messages are restricted to authenticated clinic accounts and encrypted before storage. This feature is for internal administrative communication, not emergency response or a substitute for an approved clinical messaging system.</p>
+                </div>
 
                 <div id="page-assistant" class="page-content hidden space-y-6">
                     <div><h1 class="text-3xl font-semibold text-gray-800 dark:text-gray-100">Clinic Help Assistant</h1><p class="text-gray-500 dark:text-gray-400 mt-1">Answers common administrative questions about the clinic portal.</p></div>
