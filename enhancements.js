@@ -76,7 +76,7 @@
     if (!patients.length) {
       const row = document.createElement('tr');
       const cell = addCell(row, 'No patient records found.', 'p-4 text-center text-gray-500');
-      cell.colSpan = 6;
+      cell.colSpan = 7;
       patientBody.appendChild(row);
       return;
     }
@@ -588,6 +588,7 @@
     appointments.forEach((item) => {
       const row = document.createElement('tr');
       addCell(row, item.patient);
+      addCell(row, item.contact || '—');
       addCell(row, item.doctor);
       addCell(row, item.department);
       addCell(row, new Date(item.scheduledAt).toLocaleString('en-IN'));
