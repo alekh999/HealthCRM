@@ -313,6 +313,187 @@
     }
   });
 
+  // Department and doctor directory for appointment requests. Names are fictional demo entries.
+  const appointmentDirectory = {
+  "General Medicine": [
+    "Dr. Aarav Mehta",
+    "Dr. Nisha Kulkarni"
+  ],
+  "Cardiology": [
+    "Dr. Vivaan Kapoor",
+    "Dr. Meera Sethi"
+  ],
+  "Cardiothoracic Surgery": [
+    "Dr. Raghav Menon",
+    "Dr. Kavya Rao"
+  ],
+  "Neurology": [
+    "Dr. Ishaan Malhotra",
+    "Dr. Tanvi Desai"
+  ],
+  "Neurosurgery": [
+    "Dr. Arjun Bhatia"
+  ],
+  "Orthopaedics & Joint Replacement": [
+    "Dr. Kabir Chawla",
+    "Dr. Ritu Sharma"
+  ],
+  "Paediatrics": [
+    "Dr. Advait Joshi",
+    "Dr. Myra Nair"
+  ],
+  "Neonatology": [
+    "Dr. Reyansh Gupta"
+  ],
+  "Obstetrics & Gynaecology": [
+    "Dr. Ananya Iyer",
+    "Dr. Saanvi Mishra"
+  ],
+  "Fertility & Reproductive Medicine": [
+    "Dr. Kiara Shah"
+  ],
+  "Dermatology": [
+    "Dr. Aditi Khanna",
+    "Dr. Vihaan Roy"
+  ],
+  "Psychiatry": [
+    "Dr. Dhruv Sen",
+    "Dr. Ira Mukherjee"
+  ],
+  "Psychology & Counselling": [
+    "Dr. Tara Bose"
+  ],
+  "ENT (Otolaryngology)": [
+    "Dr. Neel Agarwal",
+    "Dr. Pooja Pillai"
+  ],
+  "Ophthalmology": [
+    "Dr. Samar Khurana",
+    "Dr. Diya Thomas"
+  ],
+  "Dental & Maxillofacial Surgery": [
+    "Dr. Yash Patel",
+    "Dr. Rhea Fernandes"
+  ],
+  "Gastroenterology": [
+    "Dr. Manav Sinha",
+    "Dr. Siya Reddy"
+  ],
+  "Hepatology": [
+    "Dr. Kunal Bansal"
+  ],
+  "Nephrology": [
+    "Dr. Atharv Jain",
+    "Dr. Mahi Verma"
+  ],
+  "Urology": [
+    "Dr. Parth Deshmukh",
+    "Dr. Esha Kapoor"
+  ],
+  "Pulmonology & Respiratory Medicine": [
+    "Dr. Om Prakash",
+    "Dr. Anika Dutta"
+  ],
+  "Endocrinology & Diabetes": [
+    "Dr. Harsh Vardhan",
+    "Dr. Navya Rao"
+  ],
+  "Medical Oncology": [
+    "Dr. Siddharth Bose",
+    "Dr. Vanya Khare"
+  ],
+  "Surgical Oncology": [
+    "Dr. Rudra Nambiar"
+  ],
+  "Hematology": [
+    "Dr. Prisha Ghosh"
+  ],
+  "Rheumatology": [
+    "Dr. Aditya Menon"
+  ],
+  "Infectious Diseases": [
+    "Dr. Zoya Khan"
+  ],
+  "General & Laparoscopic Surgery": [
+    "Dr. Keshav Tripathi",
+    "Dr. Simran Kaur"
+  ],
+  "Vascular Surgery": [
+    "Dr. Nikhil Bedi"
+  ],
+  "Plastic & Reconstructive Surgery": [
+    "Dr. Aarohi Sood"
+  ],
+  "Burns & Wound Care": [
+    "Dr. Madhav Tiwari"
+  ],
+  "Emergency Medicine": [
+    "Dr. Shaurya Kulkarni",
+    "Dr. Isha Chatterjee"
+  ],
+  "Critical Care & Intensive Care": [
+    "Dr. Veer Pratap"
+  ],
+  "Anaesthesiology & Pain Medicine": [
+    "Dr. Rohan D'Souza"
+  ],
+  "Radiology & Imaging": [
+    "Dr. Pranav Saxena",
+    "Dr. Muskaan Ali"
+  ],
+  "Pathology & Laboratory Medicine": [
+    "Dr. Ekansh Dubey",
+    "Dr. Sneha Rangan"
+  ],
+  "Physiotherapy & Rehabilitation": [
+    "Dr. Lakshya Arora",
+    "Dr. Pari Malhotra"
+  ],
+  "Nutrition & Dietetics": [
+    "Dr. Riddhi Shah"
+  ],
+  "Speech & Swallowing Therapy": [
+    "Dr. Ayaan Fernandes"
+  ],
+  "Audiology": [
+    "Dr. Kriti Anand"
+  ],
+  "Occupational Therapy": [
+    "Dr. Samarjeet Kaur"
+  ],
+  "Sleep Medicine": [
+    "Dr. Naman Choudhary"
+  ],
+  "Palliative Care": [
+    "Dr. Amrita Sen"
+  ]
+};
+  const departmentSelect = $('#appointment-department');
+  const doctorSelect = $('#appointment-doctor');
+  if (departmentSelect && doctorSelect) {
+    Object.keys(appointmentDirectory).sort((a, b) => a.localeCompare(b)).forEach((department) => {
+      const option = document.createElement('option');
+      option.value = department;
+      option.textContent = department;
+      departmentSelect.appendChild(option);
+    });
+    departmentSelect.addEventListener('change', () => {
+      doctorSelect.replaceChildren();
+      const doctors = appointmentDirectory[departmentSelect.value] || [];
+      const placeholder = document.createElement('option');
+      placeholder.value = '';
+      placeholder.textContent = doctors.length ? 'Select a doctor' : 'Select a department first';
+      doctorSelect.appendChild(placeholder);
+      doctors.forEach((doctor) => {
+        const option = document.createElement('option');
+        option.value = doctor;
+        option.textContent = doctor;
+        doctorSelect.appendChild(option);
+      });
+      doctorSelect.disabled = doctors.length === 0;
+    });
+  }
+
   // Appointments: database-backed request and status tracking.
   const appointmentBody = $('#appointment-table-body');
   let appointments = [];
